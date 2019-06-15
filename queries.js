@@ -57,7 +57,7 @@ const getManga = (request, response) => {
   var genre = request.query.genre;
   if (name == undefined && genre == undefined) {
     pool.query({
-        text: `SELECT * FROM "Manga" ORDER BY manga_name LIMIT 20 OFFSET $1 `,
+        text: `SELECT * FROM "Manga" LIMIT 20 OFFSET $1 `,
         values: [offset]
       },
       (error, results) => {
@@ -74,7 +74,7 @@ const getManga = (request, response) => {
   } else if (name != undefined && genre == undefined) {
     var name1 = name.toUpperCase();
     pool.query({
-        text: `SELECT * FROM "Manga" WHERE Upper(manga_name) LIKE $1 ORDER BY manga_name  LIMIT 20 OFFSET $2`,
+        text: `SELECT * FROM "Manga" WHERE Upper(manga_name) LIKE $1   LIMIT 20 OFFSET $2`,
         values: ["%" + name1 + "%", offset]
       },
       (error, results) => {
@@ -95,7 +95,6 @@ const getManga = (request, response) => {
             WHERE manga_id IN (SELECT manga_id
                                 FROM "Genre"
                                 WHERE Upper(gen_name) LIKE $1)
-            ORDER BY manga_name
             LIMIT 20 OFFSET $2 `,
         values: ["%" + genre1 + "%", offset]
       },
@@ -117,7 +116,6 @@ const getManga = (request, response) => {
             WHERE manga_id IN (SELECT manga_id
                                 FROM "Genre"
                                 WHERE Upper(gen_name) LIKE $1) AND Upper(manga_name) LIKE $2
-            ORDER BY manga_name
             LIMIT 20 OFFSET $3 `,
         values: ["%" + genre1 + "%", "%" + name1 + "%", offset]
       },
@@ -132,7 +130,36 @@ const getManga = (request, response) => {
     );
   }
 };
-//POST new manga cai nay toi co sua body nhe
+//GET manga by admin
+const getMangaByAdmin = (request, response) => {
+  jwt.verify(request.token, secret, (err, authData) => {
+    if (err) {
+      response.sendStatus(401);
+      console.log(err);
+      return;
+    } else {
+      var data = authData.data;
+      var check = data.indexOf("admin");
+      if (check != -1) {
+        pool.query({
+            text: `SELECT *  FROM "Manga" `
+          },
+          (error, results) => {
+            if (error) {
+              response.status(404);
+              console.log(error);
+              return;
+            }
+            response.status(200).json(results.rows);
+          }
+        );
+      } else {
+        response.sendStatus(403);
+      }
+    }
+  })
+};
+//POST new manga
 const addManga = (request, response) => {
   const {
     manga_id,
@@ -306,7 +333,7 @@ const updateManga = (request, response) => {
                           var genreArray = genre.split(",");
                           response.sendStatus(200);
                           for (var i = 0; i < genreArray.length; i++) {
-                            var genreArrayi = genreArray[i].toLowerCase();
+                            var genreArrayi = genreArray[i].toLowerCase().trim();
                             pool.query({
                               text: 'INSERT INTO "Genre"(manga_id,gen_name) VALUES($1,$2)',
                               values: [id, genreArrayi]
@@ -325,7 +352,7 @@ const updateManga = (request, response) => {
                               var genreArray = genre.split(",");
                               response.sendStatus(200);
                               for (var i = 0; i < genreArray.length; i++) {
-                                var genreArrayi = genreArray[i].toLowerCase();
+                                var genreArrayi = genreArray[i].toLowerCase().trim();
                                 pool.query({
                                   text: 'INSERT INTO "Genre"(manga_id,gen_name) VALUES($1,$2)',
                                   values: [id, genreArrayi]
@@ -387,7 +414,7 @@ const deleteManga = (request, response) => {
 const getChapters = (request, response) => {
   const mangaId = request.params.id;
   pool.query({
-      text: `SELECT chap_id,chap_name,chap_content,time_up FROM "Chapter" WHERE manga_id = $1 ORDER BY chap_id`,
+      text: `SELECT chap_id,chap_name,chap_content,time_up FROM "Chapter" WHERE manga_id = $1 ORDER BY chap_id DESC`,
       values: [mangaId]
     },
     (error, results) => {
@@ -421,47 +448,46 @@ const addChapter = (request, response) => {
         var check = data.indexOf("admin");
         if (check != -1) {
           pool.query({
-              text: 'SELECT * FROM "Chapter" WHERE manga_id = $1 AND chap_id = $2',
-              values: [manga_id, chap_id]
-            }, (error, result) => {
-              if (error) {
+            text: 'SELECT * FROM "Chapter" WHERE manga_id = $1 AND chap_id = $2',
+            values: [manga_id, chap_id]
+          }, (error, result) => {
+            if (error) {
+              response.sendStatus(500);
+              console.log(error);
+              return;
+            } else {
+              if (result.rowCount != 0) {
                 response.sendStatus(500);
                 console.log(error);
                 return;
               } else {
-                if (result.rowCount != 0) {
-                  response.sendStatus(500);
-                  console.log(error);
-                  return;
-                } else {
-                  pool.query({
-                      text: `INSERT INTO "Chapter"(manga_id,chap_id,chap_name,chap_content,time_up) VALUES($1,$2,$3,$4,current_date)`,
-                      values: [manga_id, chap_id, chap_name, chap_content]
-                    },
-                    (error, result) => {
-                      if (error) {
-                        response.sendStatus(500);
-                        console.log(error);
-                        return;
-                      } else {
-                        pool.query({
-                          text: 'UPDATE "Manga" SET num_of_chap = num_of_chap + 1 WHERE manga_id = $1',
-                          values: [manga_id]
-                        }, (error, result) => {
-                          if (error) {
-                            response.sendStatus(500);
-                            console.log(error);
-                            return;
-                          } else {
-                            response.status(201).send(`Added chapter to manga with id: ${manga_id}`);
-                          }
-                        });
-                      }
-                    });
-                }
+                pool.query({
+                    text: `INSERT INTO "Chapter"(manga_id,chap_id,chap_name,chap_content,time_up) VALUES($1,$2,$3,$4,current_date)`,
+                    values: [manga_id, chap_id, chap_name, chap_content]
+                  },
+                  (error, result) => {
+                    if (error) {
+                      response.sendStatus(500);
+                      console.log(error);
+                      return;
+                    } else {
+                      pool.query({
+                        text: 'UPDATE "Manga" SET num_of_chap = num_of_chap + 1 WHERE manga_id = $1',
+                        values: [manga_id]
+                      }, (error, result) => {
+                        if (error) {
+                          response.sendStatus(500);
+                          console.log(error);
+                          return;
+                        } else {
+                          response.status(201).send(`Added chapter to manga with id: ${manga_id}`);
+                        }
+                      });
+                    }
+                  });
               }
             }
-          );
+          });
         } else {
           response.sendStatus(403);
           return;
@@ -581,7 +607,7 @@ const deleteChapter = (request, response) => {
                   response.status(200).send(`Chaper deleted with ID: ${chap}`);
                 }
               });
-              }
+            }
           }
         );
       } else {
@@ -625,7 +651,7 @@ const addComment = (request, response) => {
       } else {
         var user_name = authData.data.split(" ")[0];
         pool.query({
-            text: 'INSERT INTO "Comment"(user_name,manga_id,chap_id,content,time_up) VALUES($1,$2,$3,$4,current_timestamp)',
+            text: 'INSERT INTO "Comment"(user_name,manga_id,chap_id,content,time_up) VALUES($1,$2,$3,$4,localtimestamp)',
             values: [user_name, mangaId, chapId, content]
           },
           (error, result) => {
@@ -755,6 +781,23 @@ const getGenre = (request, response) => {
     }
   );
 };
+//GET genre by mangaId
+const getGenreByManga = (request,response) =>{
+  const id = parseInt(request.params.id);
+  pool.query({
+      text: 'SELECT DISTINCT gen_name FROM "Genre" WHERE manga_id = $1',
+      values: [id]
+    },
+    (error, results) => {
+      if (error || results.rowCount == 0) {
+        console.log(error);
+        response.sendStatus(404);
+      } else {
+        response.status(200).json(results.rows);
+      }
+    }
+  );
+}
 //check valid info
 function validUser(user) {
   const validUsername =
@@ -766,7 +809,6 @@ function validUser(user) {
 
   return validUsername & validPassword;
 }
-
 function validPassword(password) {
   const validPassword = typeof password == "string" && password.trim().length >= 8;
 
@@ -1002,6 +1044,7 @@ module.exports = {
   getUser,
   deleteUser,
   changePassword,
-  getInfo
+  getInfo,
+  getMangaByAdmin,
+  getGenreByManga,
 };
-
