@@ -32,6 +32,7 @@ app.put('/mangas/:id', db.verifyToken,db.updateManga);
 app.put('/mangas/:mangaid/rating', db.verifyToken,db.addRating);
 app.put('/mangas/:mangaid/subscription', db.verifyToken,db.addFavorite);
 
+app.get('/admin/mangas',db.verifyToken,db.getMangaByAdmin);
 app.get('/mangas/:id/chapters',db.getChapters)
 app.post('/mangas/:id/chapters',db.verifyToken, db.addChapter);
 app.get('/mangas/:mangaid/chapters/:chapterid', db.getChapterById);
@@ -45,6 +46,9 @@ app.get('/admin/users',db.verifyToken,db.getUser);
 app.delete('/admin/users/:id', db.verifyToken,db.deleteUser);
 app.get('/info',db.verifyToken,db.getInfo);
 app.get('/genres', db.getGenre);
+app.get('/mangas/:id/genres',db.getGenreByManga);
+
+
 app.get('/', (request, response) => {
   response.json({
     info: 'Node.js, Express, and Postgres API'
