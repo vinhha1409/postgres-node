@@ -193,8 +193,8 @@ const addManga = (request, response) => {
                 return;
               } else {
                 pool.query({
-                    text: `INSERT INTO "Manga"(manga_name, description,num_of_chap, author, cover) VALUES($1,$2,$3,$4,$5)`,
-                    values: [manga_name, description, num_of_chap, author, cover]
+                    text: `INSERT INTO "Manga"(manga_name, description,num_of_chap, author, cover) VALUES($1,$2,0,$3,$4)`,
+                    values: [manga_name, description,author, cover]
                   },
                   (error, result) => {
                     if (error) {
